@@ -1,0 +1,6 @@
+{
+  "name": "MarketPulse",
+  "description": "Run your market with clarity and control. Beautiful dashboard for inventory, sales, staff activity, and multi-branch monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

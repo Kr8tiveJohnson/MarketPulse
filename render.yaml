@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: marketpulse
+    runtime: node
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: NODE_VERSION
+        value: 20
