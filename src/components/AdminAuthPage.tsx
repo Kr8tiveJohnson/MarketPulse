@@ -22,12 +22,8 @@ export default function AdminAuthPage({ onBack, onLoginSuccess }: AdminAuthPageP
       return;
     }
 
-    // Hardcoded Admin login logic for the website owner
-    if (email.toLowerCase().includes('admin') || email.toLowerCase().includes('ceo') || email.toLowerCase() === 'johnsonezekiel757@gmail.com') {
-      onLoginSuccess(email, 'Admin', email.split('@')[0], 'm1');
-    } else {
-      setErrorMsg('Access Denied: Unrecognized administrator credentials.');
-    }
+    // Generic Admin login for the demo
+    onLoginSuccess(email, 'Admin', email.split('@')[0], 'm1');
   };
 
   return (

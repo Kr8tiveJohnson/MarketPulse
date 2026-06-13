@@ -24,6 +24,10 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Google Onboarding State
+  const [isGoogleOnboarding, setIsGoogleOnboarding] = useState(false);
+  const [googleData, setGoogleData] = useState<{name: string, email: string} | null>(null);
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -41,15 +45,7 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
         return;
       }
       
-      // Default login behavior for Business Admins vs Staff based on their email or input
-      // If they use standard admin test credentials:
-      if (email.includes('admin') || email.toLowerCase().includes('ceo') || email.toLowerCase() === 'johnsonezekiel757@gmail.com') {
-        onLoginSuccess(email, 'Admin', email.split('@')[0], 'm1');
-        return;
-      }
-
-      // Default sandbox login for staff
-      onLoginSuccess(email, 'Staff', email.split('@')[0], 'm1');
+      setErrorMsg('Invalid email or password.');
     } else {
       if (!name) {
         setErrorMsg('Full Name is required for Registration.');
@@ -70,6 +66,44 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
         }
       }, 700);
     }
+  };
+
+  const handleMockGoogleLogin = () => {
+    // Simulate getting data from Google
+    const gEmail = 'hello.alex@gmail.com';
+    const gName = 'Alex From Google';
+
+    // Check if user exists
+    const existingUser = staffList.find(s => s.email.toLowerCase() === gEmail.toLowerCase());
+    
+    if (existingUser) {
+      // Automatic Login
+      onLoginSuccess(existingUser.email, 'Staff', existingUser.name, existingUser.branchId);
+    } else {
+      // Trigger Onboarding
+      setGoogleData({ name: gName, email: gEmail });
+      setIsGoogleOnboarding(true);
+      setActiveTab('signup');
+    }
+  };
+
+  const submitGoogleOnboarding = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleData) return;
+    
+    if (role === 'Admin' && (!newBranchName || !newBranchLocation)) {
+      setErrorMsg('Please provide your Business Name and Location.');
+      return;
+    }
+
+    setSuccessMsg('Google account linked successfully! Logging you in...');
+    setTimeout(() => {
+      if (role === 'Admin') {
+        onLoginSuccess(googleData.email, role, googleData.name, 'new-branch', { name: newBranchName, location: newBranchLocation });
+      } else {
+        onLoginSuccess(googleData.email, role, googleData.name, branchId);
+      }
+    }, 700);
   };
 
   return (
@@ -142,9 +176,15 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
             <div className="text-green-600 text-sm text-center mb-4">{successMsg}</div>
           )}
 
-          <form onSubmit={handleAuthSubmit} className="space-y-6">
+          <form onSubmit={isGoogleOnboarding && googleData ? submitGoogleOnboarding : handleAuthSubmit} className="space-y-6">
+            {isGoogleOnboarding && googleData && (
+              <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
+                <p className="text-sm text-blue-800 font-medium mb-1">Authenticated with Google as <strong>{googleData.name}</strong></p>
+                <p className="text-xs text-blue-600">Please complete your profile to continue.</p>
+              </div>
+            )}
 
-            {activeTab === 'signup' && (
+            {activeTab === 'signup' && !isGoogleOnboarding && (
               <div className="relative">
                 <label className="text-xs text-slate-500 mb-1 block" htmlFor="reg-name">Full Name</label>
                 <input
@@ -271,12 +311,13 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
                 className="w-full text-white font-semibold rounded-full py-3.5 transition-transform hover:scale-[1.02] active:scale-95 text-sm cursor-pointer shadow-md"
                 style={{ background: 'linear-gradient(135deg, #FF7A00 0%, #E53935 100%)' }}
               >
-                {activeTab === 'signin' ? 'Sign in' : 'Create Account'}
+                {isGoogleOnboarding ? 'Complete Profile' : (activeTab === 'signin' ? 'Sign in' : 'Create Account')}
               </button>
 
-              {activeTab === 'signin' && (
+              {activeTab === 'signin' && !isGoogleOnboarding && (
                 <button
                   type="button"
+                  onClick={handleMockGoogleLogin}
                   className="w-full bg-[#f4f4f5] hover:bg-[#e4e4e7] text-slate-700 font-semibold rounded-full py-3.5 transition-transform hover:scale-[1.02] active:scale-95 text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <svg viewBox="0 0 24 24" className="w-5 h-5">
@@ -285,7 +326,7 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                   </svg>
-                  Log in with Google
+                  Log in with Google (Mock)
                 </button>
               )}
             </div>

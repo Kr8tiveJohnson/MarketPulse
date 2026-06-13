@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Product, Market, UserRole } from '../types';
-import { Search, PlusCircle, PenSquare, Trash2, ArrowUpDown, Filter, Lock, Check, TriangleAlert, RefreshCw } from 'lucide-react';
+import { Search, PlusCircle, PenSquare, Trash2, ArrowUpDown, Filter, Lock, Check, TriangleAlert, RefreshCw, Download } from 'lucide-react';
 
 interface InventoryTabProps {
   role: UserRole;
@@ -81,6 +81,29 @@ export default function InventoryTab({
     setEditingStockId(null);
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Product ID', 'Name', 'Category', 'Branch', 'Stock Units', 'Min Stock', 'Purchase Price (NGN)', 'Selling Price (NGN)'];
+    const rows = filteredProducts.map(p => [
+      p.id,
+      `"${p.name}"`,
+      `"${p.category}"`,
+      `"${getBranchName(p.branchId)}"`,
+      p.stock,
+      p.minStock,
+      p.purchasePrice,
+      p.sellingPrice
+    ].join(','));
+    
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "marketpulse_inventory_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Search and interactive query selectors */}
@@ -133,6 +156,14 @@ export default function InventoryTab({
             >
               <TriangleAlert size={14} />
               <span>Low Stock Alerts</span>
+            </button>
+
+            <button
+              onClick={handleExportCSV}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-4 py-2.5 rounded-sm transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <Download size={14} />
+              <span>Export Data</span>
             </button>
 
             {/* Big Action to spawn add product drawer */}

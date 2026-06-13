@@ -23,15 +23,7 @@ import {
 
 import { Product, Sale, Market, Staff, Activity, Task, Report, UserRole, User } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  INITIAL_MARKETS, 
-  INITIAL_STAFF, 
-  INITIAL_PRODUCTS, 
-  INITIAL_SALES, 
-  INITIAL_TASKS, 
-  INITIAL_REPORTS, 
-  INITIAL_ACTIVITIES 
-} from './data/mockData';
+
 
 // Subcomponents
 import LandingPage from './components/LandingPage';
@@ -69,6 +61,7 @@ export default function App() {
 
   // Time ticker
   const [currentTime, setCurrentTime] = useState(new Date());
+  const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
 
   // Trigger ticker update
   useEffect(() => {
@@ -76,65 +69,33 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // 1. Initial Load from localStorage or seeds
+  // 1. Initial Load from backend API
   useEffect(() => {
-    const loadedMarkets = localStorage.getItem('mp_markets');
-    if (loadedMarkets) {
-      setMarkets(JSON.parse(loadedMarkets));
-    } else {
-      setMarkets(INITIAL_MARKETS);
-      localStorage.setItem('mp_markets', JSON.stringify(INITIAL_MARKETS));
-    }
+    const loadData = async () => {
+      try {
+        const [mRes, sRes, pRes, saRes, tRes, rRes, aRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/markets`),
+          fetch(`${API_BASE_URL}/staff`),
+          fetch(`${API_BASE_URL}/products`),
+          fetch(`${API_BASE_URL}/sales`),
+          fetch(`${API_BASE_URL}/tasks`),
+          fetch(`${API_BASE_URL}/reports`),
+          fetch(`${API_BASE_URL}/activities`)
+        ]);
 
-    const loadedStaff = localStorage.getItem('mp_staff');
-    if (loadedStaff) {
-      setStaff(JSON.parse(loadedStaff));
-    } else {
-      setStaff(INITIAL_STAFF);
-      localStorage.setItem('mp_staff', JSON.stringify(INITIAL_STAFF));
-    }
+        if (mRes.ok) setMarkets(await mRes.json());
+        if (sRes.ok) setStaff(await sRes.json());
+        if (pRes.ok) setProducts(await pRes.json());
+        if (saRes.ok) setSales(await saRes.json());
+        if (tRes.ok) setTasks(await tRes.json());
+        if (rRes.ok) setReports(await rRes.json());
+        if (aRes.ok) setActivities(await aRes.json());
+      } catch (err) {
+        console.error('Failed to fetch data', err);
+      }
+    };
+    loadData();
 
-    const loadedProducts = localStorage.getItem('mp_products');
-    if (loadedProducts) {
-      setProducts(JSON.parse(loadedProducts));
-    } else {
-      setProducts(INITIAL_PRODUCTS);
-      localStorage.setItem('mp_products', JSON.stringify(INITIAL_PRODUCTS));
-    }
-
-    const loadedSales = localStorage.getItem('mp_sales');
-    if (loadedSales) {
-      setSales(JSON.parse(loadedSales));
-    } else {
-      setSales(INITIAL_SALES);
-      localStorage.setItem('mp_sales', JSON.stringify(INITIAL_SALES));
-    }
-
-    const loadedTasks = localStorage.getItem('mp_tasks');
-    if (loadedTasks) {
-      setTasks(JSON.parse(loadedTasks));
-    } else {
-      setTasks(INITIAL_TASKS);
-      localStorage.setItem('mp_tasks', JSON.stringify(INITIAL_TASKS));
-    }
-
-    const loadedReports = localStorage.getItem('mp_reports');
-    if (loadedReports) {
-      setReports(JSON.parse(loadedReports));
-    } else {
-      setReports(INITIAL_REPORTS);
-      localStorage.setItem('mp_reports', JSON.stringify(INITIAL_REPORTS));
-    }
-
-    const loadedActivities = localStorage.getItem('mp_activities');
-    if (loadedActivities) {
-      setActivities(JSON.parse(loadedActivities));
-    } else {
-      setActivities(INITIAL_ACTIVITIES);
-      localStorage.setItem('mp_activities', JSON.stringify(INITIAL_ACTIVITIES));
-    }
-
-    // Recover user session from cache
     const cachedUser = localStorage.getItem('mp_user_session');
     if (cachedUser) {
       setUser(JSON.parse(cachedUser));
@@ -142,7 +103,6 @@ export default function App() {
     }
   }, []);
 
-  // State save helper utilities
   const saveMarkets = (data: Market[]) => {
     setMarkets(data);
     localStorage.setItem('mp_markets', JSON.stringify(data));
@@ -203,60 +163,51 @@ export default function App() {
     setSidebarOpen(false);
 
     // If opening dashboard directly with no active user session, log in default Abraham (Staff) persona automatically
-    if (pageTarget === 'dashboard' && !user) {
-      const defaultUser: User = {
-        id: 's1',
-        name: 'abraham jesuwanu',
-        email: 'abraham@marketpulse.com',
-        role: 'Staff',
-        branchId: 'm1',
-      };
-      setUser(defaultUser);
-      localStorage.setItem('mp_user_session', JSON.stringify(defaultUser));
-      triggerToast('Initialized Sandbox as Abraham Jesuwanu (Staff)');
-    }
+    
   };
 
   // Perform login success redirect
-  const handleLoginSuccess = (email: string, role: UserRole, name: string, branchId: string, newMarketData?: { name: string, location: string }) => {
+  const handleLoginSuccess = async (email: string, role: UserRole, name: string, branchId: string, newMarketData?: { name: string, location: string }) => {
     let finalBranchId = branchId;
 
-    // If Admin registers a new business branch, create the market node first
     if (newMarketData && role === 'Admin') {
-      const freshMarket: Market = {
-        id: `m-${Date.now()}`,
-        name: newMarketData.name,
-        location: newMarketData.location,
-        staffCount: 1, // Start with 1 (the Admin)
-        totalRevenue: 0,
-      };
-      
-      saveMarkets([...markets, freshMarket]);
-      finalBranchId = freshMarket.id;
-      
-      // We don't trigger createActivityLog here because it relies on user state which isn't set yet.
-      // But we can trigger a nice toast!
-      triggerToast(`Successfully registered your business: ${freshMarket.name}`);
+      try {
+        const res = await fetch(`${API_BASE_URL}/markets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newMarketData.name, location: newMarketData.location })
+        });
+        if (res.ok) {
+          const freshMarket = await res.json();
+          setMarkets([...markets, freshMarket]);
+          finalBranchId = freshMarket.id;
+          triggerToast(`Successfully registered your business: ${freshMarket.name}`);
+        }
+      } catch (err) {
+        triggerToast('Failed to create market', 'warn');
+      }
     }
 
-    const freshUser: User = {
-      id: `u-${Date.now()}`,
-      name,
-      email,
-      role,
-      branchId: finalBranchId,
-    };
-    
-    setUser(freshUser);
-    localStorage.setItem('mp_user_session', JSON.stringify(freshUser));
-    
-    // We can run this async slightly so that the state has time to settle
-    setTimeout(() => {
-      createActivityLog(name, role, 'User Session Booted', `Logged into workspace via terminal node (${role} level)`);
-    }, 100);
+    try {
+      const uRes = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, role, branchId: finalBranchId })
+      });
+      const freshUser = await uRes.json();
+      setUser(freshUser);
+      localStorage.setItem('mp_user_session', JSON.stringify(freshUser));
+      
+      // We can run this async slightly so that the state has time to settle
+      setTimeout(() => {
+        createActivityLog(name, role, 'User Session Booted', `Logged into workspace via terminal node (${role} level)`);
+      }, 100);
 
-    setPage('dashboard');
-    triggerToast(`Welcome, ${name}! Logged in as ${role}.`);
+      setPage('dashboard');
+      triggerToast(`Welcome, ${name}! Logged in as ${role}.`);
+    } catch (err) {
+      triggerToast('Failed to register user', 'warn');
+    }
   };
 
   // Terminate session
@@ -310,11 +261,33 @@ export default function App() {
     triggerToast('Product details updated successfully');
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (user?.role !== 'Admin') {
       triggerToast('Permission Denied: Staff cannot delete catalog nodes', 'warn');
       return;
     }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${user.token || ''}`
+        }
+      });
+      
+      if (!res.ok) {
+        if (res.status === 403 || res.status === 401) {
+          triggerToast('Backend Permission Denied', 'warn');
+        } else {
+          triggerToast('Failed to delete on server', 'warn');
+        }
+        return;
+      }
+    } catch (err) {
+      triggerToast('Network error while deleting', 'warn');
+      return;
+    }
+
     const victim = products.find((p) => p.id === id);
     const updatedList = products.filter((p) => p.id !== id);
     saveProducts(updatedList);
@@ -506,15 +479,8 @@ export default function App() {
   };
 
   // Reset entire database to default Balogun & Computer Village seeds (In settings)
-  const handleResetStorage = () => {
-    saveMarkets(INITIAL_MARKETS);
-    saveStaff(INITIAL_STAFF);
-    saveProducts(INITIAL_PRODUCTS);
-    saveSales(INITIAL_SALES);
-    saveTasks(INITIAL_TASKS);
-    saveReports(INITIAL_REPORTS);
-    saveActivities(INITIAL_ACTIVITIES);
-    triggerToast('Sandbox database states successfully wiped to original Balogun & Computer Village default seeds!');
+  const handleResetStorage = async () => {
+    triggerToast('Reset requires manual database clear in backend now.', 'info');
   };
 
   // Render individual tabs on dashboard page
