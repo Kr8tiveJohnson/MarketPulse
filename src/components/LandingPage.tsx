@@ -18,6 +18,10 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [showScrollToTop, setShowScrollToTop] = React.useState(false);
 
+  // Contact Modal States
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactFormSubmitted, setContactFormSubmitted] = useState(false);
+
   const [currentChart, setCurrentChart] = useState(0);
   const charts = [
     '/charts/chart1.png',
@@ -520,7 +524,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                 <li>• Automated weekly audit reports</li>
               </ul>
               <button
-                onClick={() => onNavigate('auth', 'signup')}
+                onClick={() => setShowContactModal(true)}
                 className="mt-8 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
               >
                 Contact us
@@ -560,6 +564,84 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           >
             <ArrowUp size={16} />
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Enterprise Contact Modal */}
+      <AnimatePresence>
+        {showContactModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative"
+            >
+              <button 
+                onClick={() => {
+                  setShowContactModal(false);
+                  setTimeout(() => setContactFormSubmitted(false), 300);
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <AlertCircle size={20} className="rotate-45" /> {/* Makes a simple X-like close button */}
+              </button>
+
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise Contact</h3>
+              
+              {contactFormSubmitted ? (
+                <div className="mt-6 p-4 bg-emerald-50 border border-emerald-100 rounded-lg text-center">
+                  <div className="mx-auto w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <h4 className="font-bold text-emerald-800 mb-1">Successful!</h4>
+                  <p className="text-sm text-emerald-600">Admin will contact you soon to discuss a tailored MarketPulse setup.</p>
+                  <button 
+                    onClick={() => {
+                      setShowContactModal(false);
+                      setTimeout(() => setContactFormSubmitted(false), 300);
+                    }}
+                    className="mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-lg text-sm cursor-pointer transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setContactFormSubmitted(true);
+                  }} 
+                  className="mt-6 space-y-4"
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Full Name / Company Name</label>
+                    <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="e.g. Sufa Distribution Corp" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Work Email</label>
+                    <input required type="email" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="you@company.com" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Estimated Branch Count</label>
+                    <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500">
+                      <option>10 - 50 branches</option>
+                      <option>50 - 200 branches</option>
+                      <option>200+ branches</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="w-full text-white font-bold py-3 rounded-lg text-sm cursor-pointer mt-2" style={{ background: 'linear-gradient(135deg, #00B8D9 0%, #3558A8 100%)' }}>
+                    Request Callback
+                  </button>
+                </form>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
