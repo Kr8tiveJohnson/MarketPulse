@@ -17,7 +17,7 @@ interface AuthPageProps {
   staffList: { name: string; email: string; branchId: string; branchName: string }[];
 }
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || (import.meta.env?.PROD ? '/api' : 'http://localhost:5000/api');
 
 export default function AuthPage({ initialAction = 'signin', onBack, onLoginSuccess, markets, staffList }: AuthPageProps) {
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialAction);

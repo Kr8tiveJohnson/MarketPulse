@@ -61,7 +61,7 @@ export default function App() {
 
   // Time ticker
   const [currentTime, setCurrentTime] = useState(new Date());
-  const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+  const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || (import.meta.env?.PROD ? '/api' : 'http://localhost:5000/api');
 
   // Trigger ticker update
   useEffect(() => {
