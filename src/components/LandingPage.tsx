@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, BarChart3, ShieldCheck, ShoppingBag, Users, Layers, AlertCircle, Globe, Sparkles, ArrowUp, Tag, HelpCircle } from 'lucide-react';
+import { ArrowRight, BarChart3, ShieldCheck, ShoppingBag, Users, Layers, AlertCircle, Globe, Sparkles, ArrowUp, Tag, HelpCircle, Plus, Minus } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useSpring } from 'motion/react';
 
 interface LandingPageProps {
@@ -21,6 +21,46 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   // Contact Modal States
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactFormSubmitted, setContactFormSubmitted] = useState(false);
+
+  // FAQ State
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: "I'm not great with technology. Is MarketPulse hard to learn?",
+      a: "Not at all. We built MarketPulse specifically to be as simple as sending a WhatsApp message. Your staff will get the hang of it in less than 10 minutes, guaranteed."
+    },
+    {
+      q: "What happens to my data if my internet connection drops?",
+      a: "Your business shouldn't stop for a bad network. MarketPulse automatically saves your data securely and syncs it the moment your connection returns. No lost sales."
+    },
+    {
+      q: "Can my staff see how much money the business is making?",
+      a: "No. We've built strict privacy controls into the system. Only you (the Admin) can see total revenue, profits, and overall business health."
+    },
+    {
+      q: "Is my business data really safe in the cloud?",
+      a: "Yes. We use the same level of encryption as major banks. Your data is backed up daily and strictly accessible only by you and authorized staff."
+    },
+    {
+      q: "Do I have to pay per branch or per staff member?",
+      a: "Our Growth plan covers unlimited branches and unlimited staff. We want your business to grow without you worrying about software restrictions holding you back."
+    },
+    {
+      q: "What if I need help setting things up?",
+      a: "We're always here. While the system is plug-and-play, you can reach out to our support team anytime, and we'll gladly walk you through the setup."
+    }
+  ];
+
+  const quotes = [
+    "The secret of change is to focus all of your energy, not on fighting the old, but on building the new.",
+    "Growth is never by mere chance; it is the result of forces working together.",
+    "Opportunities don't happen. You create them.",
+    "The best way to predict the future is to create it.",
+    "Good business leaders create a vision, passionately own the vision, and relentlessly drive it to completion.",
+    "Success is not just about making money. It's about making a difference.",
+    "Don't be afraid to give up the good to go for the great."
+  ];
 
   const [currentChart, setCurrentChart] = useState(0);
   const charts = [
@@ -529,6 +569,96 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
               >
                 Contact us
               </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-24 bg-slate-50 border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
+              Frequently Asked Questions
+            </h2>
+            <p className="mt-4 text-slate-600">
+              Everything you need to know about switching to MarketPulse.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <div 
+                key={index} 
+                className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+                onClick={() => setOpenFaq(openFaq === index ? null : index)}
+              >
+                <div className="flex items-center justify-between p-6">
+                  <h3 className="font-bold text-slate-900 pr-8 text-left">{faq.q}</h3>
+                  <div className={`flex-shrink-0 text-[#3558A8] transition-transform duration-300 ${openFaq === index ? 'rotate-180' : ''}`}>
+                    {openFaq === index ? <Minus size={20} /> : <Plus size={20} />}
+                  </div>
+                </div>
+                <AnimatePresence>
+                  {openFaq === index && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    >
+                      <div className="px-6 pb-6 text-slate-600 leading-relaxed text-sm">
+                        {faq.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Quotes Marquee Section */}
+      <section className="py-24 bg-slate-50 relative overflow-hidden">
+        <style>{`
+          @keyframes scroll-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          .animate-marquee {
+            display: inline-flex;
+            animation: scroll-left 45s linear infinite;
+          }
+          .animate-marquee:hover {
+            animation-play-state: paused;
+          }
+        `}</style>
+        
+        <div className="max-w-7xl mx-auto px-6">
+          <div 
+            className="overflow-hidden rounded-full py-3 md:py-4 border border-white/10 relative"
+            style={{
+              background: 'rgba(10, 30, 50, 0.88)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 4px 32px 0 rgba(4,97,123,0.18), inset 0 1px 0 rgba(255,255,255,0.08)'
+            }}
+          >
+            {/* Fading Edges inside the pill */}
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#0d1a29] to-transparent z-10 pointer-events-none rounded-l-full" />
+            <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#0d1a29] to-transparent z-10 pointer-events-none rounded-r-full" />
+
+            <div className="animate-marquee whitespace-nowrap flex items-center">
+              {/* We render the quotes array twice to create a seamless infinite loop */}
+              {[...quotes, ...quotes].map((quote, idx) => (
+                <div key={idx} className="flex items-center mx-8 group">
+                  <Sparkles size={14} className="text-[#00B8D9] mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-white/70 font-medium text-sm md:text-base italic tracking-wide group-hover:text-white transition-colors duration-300">
+                    "{quote}"
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
