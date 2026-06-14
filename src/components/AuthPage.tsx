@@ -5,10 +5,19 @@ import { UserRole } from '../types';
 interface AuthPageProps {
   initialAction?: 'signin' | 'signup';
   onBack: () => void;
-  onLoginSuccess: (email: string, role: UserRole, name: string, branchId: string, newMarketData?: { name: string, location: string }) => void;
+  onLoginSuccess: (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    branchId: string;
+    token?: string;
+  }, newMarketData?: { name: string; location: string }) => void;
   markets: { id: string; name: string }[];
   staffList: { name: string; email: string; branchId: string; branchName: string }[];
 }
+
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function AuthPage({ initialAction = 'signin', onBack, onLoginSuccess, markets, staffList }: AuthPageProps) {
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialAction);
@@ -23,12 +32,13 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Google Onboarding State
   const [isGoogleOnboarding, setIsGoogleOnboarding] = useState(false);
   const [googleData, setGoogleData] = useState<{name: string, email: string} | null>(null);
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -38,33 +48,79 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
       return;
     }
 
+    setIsLoading(true);
+
     if (activeTab === 'signin') {
-      const existingUser = staffList.find(s => s.email.toLowerCase() === email.toLowerCase());
-      if (existingUser) {
-        onLoginSuccess(existingUser.email, 'Staff', existingUser.name, existingUser.branchId);
-        return;
+      // ── SIGN IN: hit the real /login endpoint ──────────────────────────────
+      try {
+        const res = await fetch(`${API_BASE_URL}/users/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorMsg(data.message || 'Invalid email or password.');
+          setIsLoading(false);
+          return;
+        }
+
+        // data = { id, name, email, role, branchId, token }
+        onLoginSuccess(data);
+      } catch (err) {
+        setErrorMsg('Network error. Please check your connection and try again.');
+      } finally {
+        setIsLoading(false);
       }
-      
-      setErrorMsg('Invalid email or password.');
+
     } else {
+      // ── SIGN UP: validate then hit /register ────────────────────────────────
       if (!name) {
         setErrorMsg('Full Name is required for Registration.');
-        return;
-      }
-      
-      if (role === 'Admin' && (!newBranchName || !newBranchLocation)) {
-        setErrorMsg('Please provide your Business Name and Location.');
+        setIsLoading(false);
         return;
       }
 
-      setSuccessMsg('Account created successfully! Logging you in...');
-      setTimeout(() => {
-        if (role === 'Admin') {
-          onLoginSuccess(email, role, name, 'new-branch', { name: newBranchName, location: newBranchLocation });
-        } else {
-          onLoginSuccess(email, role, name, branchId);
+      if (role === 'Admin' && (!newBranchName || !newBranchLocation)) {
+        setErrorMsg('Please provide your Business Name and Location.');
+        setIsLoading(false);
+        return;
+      }
+
+      const finalBranchId = role === 'Staff' ? branchId : 'new-branch';
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/users/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, role, branchId: finalBranchId }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorMsg(data.message || 'Registration failed. Please try again.');
+          setIsLoading(false);
+          return;
         }
-      }, 700);
+
+        setSuccessMsg('Account created! Logging you in…');
+
+        // data = { id, name, email, role, branchId, token }
+        setTimeout(() => {
+          if (role === 'Admin') {
+            onLoginSuccess(data, { name: newBranchName, location: newBranchLocation });
+          } else {
+            onLoginSuccess(data);
+          }
+        }, 700);
+
+      } catch (err) {
+        setErrorMsg('Network error. Please check your connection and try again.');
+        setIsLoading(false);
+      }
     }
   };
 
@@ -73,12 +129,19 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
     const gEmail = 'hello.alex@gmail.com';
     const gName = 'Alex From Google';
 
-    // Check if user exists
+    // Check if user exists in staffList (quick local check)
     const existingUser = staffList.find(s => s.email.toLowerCase() === gEmail.toLowerCase());
     
     if (existingUser) {
-      // Automatic Login
-      onLoginSuccess(existingUser.email, 'Staff', existingUser.name, existingUser.branchId);
+      // Automatic Login via backend
+      fetch(`${API_BASE_URL}/users/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: gEmail, name: gName }),
+      })
+        .then(r => r.json())
+        .then(data => onLoginSuccess(data))
+        .catch(() => setErrorMsg('Google login failed.'));
     } else {
       // Trigger Onboarding
       setGoogleData({ name: gName, email: gEmail });
@@ -87,7 +150,7 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
     }
   };
 
-  const submitGoogleOnboarding = (e: React.FormEvent) => {
+  const submitGoogleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!googleData) return;
     
@@ -96,14 +159,36 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
       return;
     }
 
-    setSuccessMsg('Google account linked successfully! Logging you in...');
-    setTimeout(() => {
-      if (role === 'Admin') {
-        onLoginSuccess(googleData.email, role, googleData.name, 'new-branch', { name: newBranchName, location: newBranchLocation });
-      } else {
-        onLoginSuccess(googleData.email, role, googleData.name, branchId);
+    setIsLoading(true);
+
+    try {
+      const finalBranchId = role === 'Staff' ? branchId : 'new-branch';
+      const res = await fetch(`${API_BASE_URL}/users/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: googleData.email, name: googleData.name, role, branchId: finalBranchId, isSignup: true }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMsg(data.message || 'Google sign-up failed.');
+        setIsLoading(false);
+        return;
       }
-    }, 700);
+
+      setSuccessMsg('Google account linked! Logging you in…');
+      setTimeout(() => {
+        if (role === 'Admin') {
+          onLoginSuccess(data, { name: newBranchName, location: newBranchLocation });
+        } else {
+          onLoginSuccess(data);
+        }
+      }, 700);
+    } catch (err) {
+      setErrorMsg('Network error. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -131,7 +216,7 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
         />
         <div className="relative z-10 p-12 text-white">
           <img src="/logo.png" alt="MarketPulse" className="w-14 h-14 object-contain mb-6" />
-          <h2 className="text-3xl font-extrabold leading-tight mb-4">Run your market<br />with clarity & control</h2>
+          <h2 className="text-3xl font-extrabold leading-tight mb-4">Run your market<br />with clarity &amp; control</h2>
           <p className="text-sm text-white/70 leading-relaxed">Track inventory, manage staff, and monitor every branch — all from one place.</p>
         </div>
       </div>
@@ -199,40 +284,44 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
               </div>
             )}
 
-            <div className="relative">
-              <label className="text-xs text-slate-500 mb-1 block" htmlFor="reg-email">Email</label>
-              <input
-                id="reg-email"
-                type="text"
-                placeholder="hello.alex@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border-0 border-b border-gray-300 focus:ring-0 focus:border-slate-900 bg-transparent px-0 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400"
-                required
-              />
-            </div>
-
-            <div className="relative">
-              <label className="text-xs text-slate-500 mb-1 block" htmlFor="reg-pass">Password</label>
-              <div className="relative flex items-center border-b border-gray-300 focus-within:border-slate-900 transition-colors">
+            {!isGoogleOnboarding && (
+              <div className="relative">
+                <label className="text-xs text-slate-500 mb-1 block" htmlFor="reg-email">Email</label>
                 <input
-                  id="reg-pass"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border-0 focus:ring-0 bg-transparent px-0 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                  id="reg-email"
+                  type="text"
+                  placeholder="hello.alex@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border-0 border-b border-gray-300 focus:ring-0 focus:border-slate-900 bg-transparent px-0 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-0 text-slate-400 hover:text-slate-600 outline-none cursor-pointer"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
               </div>
-            </div>
+            )}
+
+            {!isGoogleOnboarding && (
+              <div className="relative">
+                <label className="text-xs text-slate-500 mb-1 block" htmlFor="reg-pass">Password</label>
+                <div className="relative flex items-center border-b border-gray-300 focus-within:border-slate-900 transition-colors">
+                  <input
+                    id="reg-pass"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border-0 focus:ring-0 bg-transparent px-0 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-0 text-slate-400 hover:text-slate-600 outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'signin' && (
               <div className="flex items-center justify-between mt-2">
@@ -308,10 +397,11 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
             <div className="pt-4 flex flex-col gap-3">
               <button
                 type="submit"
-                className="w-full text-white font-semibold rounded-full py-3.5 transition-transform hover:scale-[1.02] active:scale-95 text-sm cursor-pointer shadow-md"
+                disabled={isLoading}
+                className="w-full text-white font-semibold rounded-full py-3.5 transition-transform hover:scale-[1.02] active:scale-95 text-sm cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #FF7A00 0%, #E53935 100%)' }}
               >
-                {isGoogleOnboarding ? 'Complete Profile' : (activeTab === 'signin' ? 'Sign in' : 'Create Account')}
+                {isLoading ? 'Please wait…' : (isGoogleOnboarding ? 'Complete Profile' : (activeTab === 'signin' ? 'Sign in' : 'Create Account'))}
               </button>
 
               {activeTab === 'signin' && !isGoogleOnboarding && (
@@ -346,4 +436,3 @@ export default function AuthPage({ initialAction = 'signin', onBack, onLoginSucc
     </div>
   );
 }
-

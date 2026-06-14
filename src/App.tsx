@@ -166,43 +166,49 @@ export default function App() {
     
   };
 
-  // Perform login success redirect
+  // Perform login success redirect — accepts the user object returned directly from the API
   const handleLoginSuccess = async (
-  userData: User,
-  newMarketData?: { name: string; location: string }
-) => {
-  let finalBranchId = userData.branchId;
+    apiUser: { id: string; name: string; email: string; role: UserRole; branchId: string; token?: string },
+    newMarketData?: { name: string; location: string }
+  ) => {
+    let finalBranchId = apiUser.branchId;
 
-  if (newMarketData && userData.role === 'Admin') {
-    try {
-      const res = await fetch(`${API_BASE_URL}/markets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newMarketData.name, location: newMarketData.location })
-      });
-      if (res.ok) {
-        const freshMarket = await res.json();
-        setMarkets([...markets, freshMarket]);
-        finalBranchId = freshMarket.id;
-        triggerToast(`Successfully registered your business: ${freshMarket.name}`);
+    // If admin just signed up with a new market, create the market first
+    if (newMarketData && apiUser.role === 'Admin') {
+      try {
+        const res = await fetch(`${API_BASE_URL}/markets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newMarketData.name, location: newMarketData.location })
+        });
+        if (res.ok) {
+          const freshMarket = await res.json();
+          setMarkets(prev => [...prev, freshMarket]);
+          finalBranchId = freshMarket._id || freshMarket.id;
+          triggerToast(`Successfully registered your business: ${freshMarket.name}`);
+        }
+      } catch (err) {
+        triggerToast('Failed to create market', 'warn');
       }
-    } catch (err) {
-      triggerToast('Failed to create market', 'warn');
     }
-  }
 
-  const finalUser: User = { ...userData, branchId: finalBranchId };
+    const sessionUser = { ...apiUser, branchId: finalBranchId };
+    setUser(sessionUser);
+    localStorage.setItem('mp_user_session', JSON.stringify(sessionUser));
 
-  setUser(finalUser);
-  localStorage.setItem('mp_user_session', JSON.stringify(finalUser));
+    // Log activity slightly deferred so state has settled
+    setTimeout(() => {
+      createActivityLog(apiUser.name, apiUser.role, 'User Session Booted', `Logged into workspace via terminal node (${apiUser.role} level)`);
+    }, 100);
 
-  setTimeout(() => {
-    createActivityLog(finalUser.name, finalUser.role, 'User Session Booted', `Logged into workspace via terminal node (${finalUser.role} level)`);
-  }, 100);
+    setPage('dashboard');
+    triggerToast(`Welcome, ${apiUser.name}! Logged in as ${apiUser.role}.`);
+  };
 
-  setPage('dashboard');
-  triggerToast(`Welcome, ${finalUser.name}! Logged in as ${finalUser.role}.`);
-};
+  // Thin adapter for AdminAuthPage (which passes individual fields)
+  const handleAdminLoginSuccess = (email: string, role: UserRole, name: string, branchId: string) => {
+    handleLoginSuccess({ id: '', name, email, role, branchId });
+  };
 
   // Terminate session
   const handleLogout = () => {
@@ -599,7 +605,7 @@ export default function App() {
       {page === 'adminAuth' && (
         <AdminAuthPage
           onBack={() => setPage('landing')}
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={handleAdminLoginSuccess}
         />
       )}
 
