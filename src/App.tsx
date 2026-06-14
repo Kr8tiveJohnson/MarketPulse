@@ -26,8 +26,8 @@ import { motion, AnimatePresence } from 'motion/react';
 
 
 // Subcomponents
-import LandingPage from './components/LandingPage';
-import AuthPage from './components/AuthPage';
+import LandingPage from './components/LandingPage'; 
+import AuthPage from './components/AuthPage'; 
 import AdminAuthPage from './components/AdminAuthPage';
 import OverviewTab from './components/OverviewTab';
 import InventoryTab from './components/InventoryTab';
@@ -167,48 +167,42 @@ export default function App() {
   };
 
   // Perform login success redirect
-  const handleLoginSuccess = async (email: string, role: UserRole, name: string, branchId: string, newMarketData?: { name: string, location: string }) => {
-    let finalBranchId = branchId;
+  const handleLoginSuccess = async (
+  userData: User,
+  newMarketData?: { name: string; location: string }
+) => {
+  let finalBranchId = userData.branchId;
 
-    if (newMarketData && role === 'Admin') {
-      try {
-        const res = await fetch(`${API_BASE_URL}/markets`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newMarketData.name, location: newMarketData.location })
-        });
-        if (res.ok) {
-          const freshMarket = await res.json();
-          setMarkets([...markets, freshMarket]);
-          finalBranchId = freshMarket.id;
-          triggerToast(`Successfully registered your business: ${freshMarket.name}`);
-        }
-      } catch (err) {
-        triggerToast('Failed to create market', 'warn');
-      }
-    }
-
+  if (newMarketData && userData.role === 'Admin') {
     try {
-      const uRes = await fetch(`${API_BASE_URL}/users`, {
+      const res = await fetch(`${API_BASE_URL}/markets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, role, branchId: finalBranchId })
+        body: JSON.stringify({ name: newMarketData.name, location: newMarketData.location })
       });
-      const freshUser = await uRes.json();
-      setUser(freshUser);
-      localStorage.setItem('mp_user_session', JSON.stringify(freshUser));
-      
-      // We can run this async slightly so that the state has time to settle
-      setTimeout(() => {
-        createActivityLog(name, role, 'User Session Booted', `Logged into workspace via terminal node (${role} level)`);
-      }, 100);
-
-      setPage('dashboard');
-      triggerToast(`Welcome, ${name}! Logged in as ${role}.`);
+      if (res.ok) {
+        const freshMarket = await res.json();
+        setMarkets([...markets, freshMarket]);
+        finalBranchId = freshMarket.id;
+        triggerToast(`Successfully registered your business: ${freshMarket.name}`);
+      }
     } catch (err) {
-      triggerToast('Failed to register user', 'warn');
+      triggerToast('Failed to create market', 'warn');
     }
-  };
+  }
+
+  const finalUser: User = { ...userData, branchId: finalBranchId };
+
+  setUser(finalUser);
+  localStorage.setItem('mp_user_session', JSON.stringify(finalUser));
+
+  setTimeout(() => {
+    createActivityLog(finalUser.name, finalUser.role, 'User Session Booted', `Logged into workspace via terminal node (${finalUser.role} level)`);
+  }, 100);
+
+  setPage('dashboard');
+  triggerToast(`Welcome, ${finalUser.name}! Logged in as ${finalUser.role}.`);
+};
 
   // Terminate session
   const handleLogout = () => {
@@ -220,8 +214,6 @@ export default function App() {
     setPage('landing');
     triggerToast('Logged out successfully.', 'info');
   };
-
-
 
   // Operational state mutaters (passed into matching dashboard tabs)
 
